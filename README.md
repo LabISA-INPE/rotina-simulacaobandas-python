@@ -26,7 +26,7 @@ A Python library for simulating satellite sensor bands from hyperspectral remote
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/rotina-simulacaobandas-python.git
+git clone https://github.com/LabISA-INPE/rotina-simulacaobandas-python.git
 cd rotina-simulacaobandas-python
 
 # Install with Poetry
