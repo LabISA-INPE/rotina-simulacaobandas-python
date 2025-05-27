@@ -1,0 +1,19 @@
+[project]
+name = "rotina-simulacaobandas-python"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Guilherme Yokota Sato",email = "guilherme.yokota20@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+]
+
+[tool.poetry]
+packages = [{include = "rotina_simulacaobandas_python", from = "src"}]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
