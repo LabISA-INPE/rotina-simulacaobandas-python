@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-class SateliteBandSimulator:
+class SatelliteBandSimulator:
     def __init__(self, data_folder='./data-raw'):
         self.srf_data = {
             's3': pd.read_pickle(f"{data_folder}/s3_srf.pkl"),
@@ -16,7 +16,7 @@ class SateliteBandSimulator:
 
     def _simulate_band_direct(self, spectra, srf_data, band_indices, wave_centers, point_names, wavelength_range=None):
         # Create DataFrame with wavelengths 
-        wavelengths = list(range(400, 901))
+        wavelengths = spectra.index.tolist()
         espec = pd.DataFrame(index=wavelengths)
 
         # Add spectra columns
