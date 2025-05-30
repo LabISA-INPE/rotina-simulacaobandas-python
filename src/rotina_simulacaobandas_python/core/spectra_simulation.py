@@ -14,56 +14,60 @@ class SatelliteBandSimulator:
             'modis': pd.read_pickle(f"{data_folder}/modis_srf.pkl")
         }
 
-    def _simulate_band_direct(self, spectra, srf_data, band_indices, wave_centers, point_names, wavelength_range=None):
-        # Create DataFrame with wavelengths 
-        wavelengths = spectra.index.tolist()
-        espec = pd.DataFrame(index=wavelengths)
-
-        # Add spectra columns
-        for i, col_name in enumerate(point_names):
-            espec[col_name] = spectra.iloc[:, i].values
-
-        # Initialize result dataframe
+    def _simulate_bands_direct_optmized(self, spectra, srf_data, band_indices, wave_centers, point_names, wavelength_range=None):
+        # Convert to numpy for faster operations
+        spectra_values = spectra.values
+        spectra_wavelengths = spectra.index.values
+        
+        # Initialize result array
         n_bands = len(band_indices)
-        result_df = pd.DataFrame(index=range(n_bands))
-
+        n_points = len(point_names)
+        results = np.zeros(n_bands, n_points)
+        
         # Process each band
         for band_idx, srf_col_idx in enumerate(band_indices):
             # Extract SRF for this band
-            srf_band = srf_data.iloc[:, [0, srf_col_idx]].copy()
+            srf_wavelengths = srf_data.iloc[:, 0].values.astype(int)
+            srf_values = srf_data.iloc[:, srf_col_idx].values
 
-            # Apply wavelength filtering if specified
+            # Apply wavelengths filtering
             if wavelength_range is not None:
                 min_wave, max_wave = wavelength_range
-                srf_band = srf_band[(srf_band.iloc[:, 0] >= min_wave) & (srf_band.iloc[:, 0] <= max_wave)]
+                mask = (srf_wavelengths >= min_wave) & (srf_wavelengths <= max_wave)
+                srf_wavelengths - srf_wavelengths[mask]
+                srf_values = srf_values[mask]
 
-            # Calculate FAC (correction factor)
-            srf_values = srf_band.iloc[:, 1]
-            fac_values = srf_values / srf_values.sum()
+            # Calculate FAC (normalization)
+            srf_sum = np.sum(srf_values)
+            if srf_sum > 0:
+                fac_values = srf_values / srf_sum
 
-            # For each station/point
-            for col_name in point_names:
-                # Get spectra values for wavelengths that match SRF wavelengths
-                srf_wavelengths = srf_band.iloc[:, 0].values.astype(int)
+                # Find matching wavelengths between spectra and SRF
+                # Use numpy searchsorted for fast lookup
+                valid_indices = []
+                valid_fac = []
 
-                # Extract corresponding spectra values
-                spectra_values = []
-                for wl in srf_wavelengths:
-                    if wl in espec.index:
-                        spectra_values.append(espec.loc[wl ,col_name])
-                    else:
-                        spectra_values.append(0)
+                for i, wl in enumerate(srf_wavelengths):
+                    spec_idx = np.where(spectra_wavelengths == wl)[0][0]
+                    valid_indices.append(spec_idx)
+                    valid_fac.append(fac_values[i])
                 
-                spectra_values = np.array(spectra_values)
+                if valid_indices:
+                    valid_indices = np.array(valid_indices)
+                    valid_fac = np.array(valid_fac)
 
-                # Calculaate weighted sum
-                band_value = np.nansum(fac_values.values * spectra_values)
-                result_df.loc[band_idx, col_name] = band_value
-        
-        # Add wavelengths centers
-        result_df.insert(0, 'Wave', wave_centers)
+                    # Vectorized computation across all points
+                    selected_spectra = spectra_values[valid_indices, :]  # (valid_wavelengths, points)
+                    results[band_idx, :] = np.sum(valid_fac[:, np.newaxis] * selected_spectra, axis=0)
 
-        return result_df
+        # Create result DataFrame
+        result_df = pd.DataFrame(results.T, columns=[f'Band_{wave}nm' for wave in wave_centers])
+        result_df.insert(0, 'Wave', [wave_centers[i] if i < len(wave_centers) else 0 for i in range(len(point_names))])
+        result_df.index = point_names
+        result_df = result_df.reset_index()
+        result_df = result_df.rename(columns={'index': 'Point_ID'})
+    
+        return result_df            
 
     def olci(self, spectra, point_names):
         # Use bands 1-19
