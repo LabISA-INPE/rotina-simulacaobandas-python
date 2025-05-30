@@ -70,80 +70,77 @@ class SatelliteBandSimulator:
         return result_df            
 
     def olci(self, spectra, point_names):
-        # Use bands 1-19
+        """OLCI simulation - optimized version"""
         band_indices = list(range(1, 20))
         wave_centers = [400, 412, 442, 490, 510, 560, 620, 665, 673, 681, 
                        708, 753, 761, 764, 767, 778, 865, 885, 900]
-    
-        return self._simulate_band_direct(
-            spectra, self.srf_data['s3'], band_indices, wave_centers,
+        
+        return self._simulate_bands_direct_optimized(
+            spectra, self.srf_data['s3'], band_indices, wave_centers, 
             point_names, wavelength_range=(400, 900)
         )
     
     def msi(self, spectra, point_names):
-        # S2A and S2B bands 1-9
+        """MSI simulation - optimized version"""
         band_indices = list(range(1, 10))
         wave_centers = [440, 490, 560, 665, 705, 740, 783, 842, 865]
-
-        s2a_result = self._simulate_band_direct(
+        
+        s2a_result = self._simulate_bands_direct_optimized(
             spectra, self.srf_data['s2a'], band_indices, wave_centers,
             point_names, wavelength_range=(400, 900)
         )
-
-        s2b_result = self._simulate_band_direct(
+        
+        s2b_result = self._simulate_bands_direct_optimized(
             spectra, self.srf_data['s2b'], band_indices, wave_centers,
             point_names, wavelength_range=(400, 900)
         )
-
+        
         return {'s2a': s2a_result, 's2b': s2b_result}
     
     def oli(self, spectra, point_names):
-        # OLI bands 1-5
+        """OLI simulation - optimized version"""
         band_indices = list(range(1, 6))
         wave_centers = [440, 490, 560, 665, 865]
-
-        return self._simulate_band_direct(
-            spectra, self.srf_data['l8'], band_indices, wave_centers, 
-            point_names
+        
+        return self._simulate_bands_direct_optimized(
+            spectra, self.srf_data['l8'], band_indices, wave_centers, point_names
         )
     
     def etm(self, spectra, point_names):
-        # ETM bands 1-4
+        """ETM simulation - optimized version"""
         band_indices = list(range(1, 5))
         wave_centers = [490, 560, 665, 865]
-
-        return self._simulate_band_direct(
-            spectra, self.srf_data['l7'], band_indices, wave_centers, 
-            point_names
+        
+        return self._simulate_bands_direct_optimized(
+            spectra, self.srf_data['l7'], band_indices, wave_centers, point_names
         )
-
+    
     def tm(self, spectra, point_names):
-        # TM bands 1-4
+        """TM simulation - optimized version"""
         band_indices = list(range(1, 5))
         wave_centers = [490, 560, 665, 865]
-
-        return self._simulate_band_direct(
-            spectra, self.srf_data['l5'], band_indices, wave_centers,
-            point_names
+        
+        return self._simulate_bands_direct_optimized(
+            spectra, self.srf_data['l5'], band_indices, wave_centers, point_names
         )
 
     def superdove(self, spectra, point_names):
-        # SuperDove bands 1-8
+        """SuperDove simulation - optimized version"""
         band_indices = list(range(1, 9))
         wave_centers = [443, 490, 531, 565, 610, 665, 705, 865]
-
-        return self._simulate_band_direct(
+        
+        return self._simulate_bands_direct_optimized(
             spectra, self.srf_data['planet'], band_indices, wave_centers,
             point_names, wavelength_range=(400, 900)
         )
     
     def modis(self, spectra, point_names):
+        """MODIS simulation - optimized version"""
         band_indices = list(range(1, 17))
         wave_centers = [412, 443, 469, 488, 531, 551, 555, 645, 667, 678, 
-                       748, 859, 869, 1240, 1640, 2130] 
+                       748, 859, 869, 1240, 1640, 2130]
         
-        return self._simulate_band_direct(
-            spectra, self.srf_data['modis'], band_indices, wave_centers, 
+        return self._simulate_bands_direct_optimized(
+            spectra, self.srf_data['modis'], band_indices, wave_centers,
             point_names, wavelength_range=(400, 900)
         )
-    
