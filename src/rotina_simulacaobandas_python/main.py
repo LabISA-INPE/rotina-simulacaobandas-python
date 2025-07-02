@@ -5,10 +5,8 @@ from utils.data_processor import DataProcessor
 from utils.output_handler import OutputHandler
 
 def main():
-    # Configuration
     data_path = "../example/GLORIA_Rrs.csv"
     output_dir = "results"
-    target_stations = 1000
     
     # Initialize components
     simulator = SatelliteBandSimulator()
@@ -21,16 +19,33 @@ def main():
     data = data_loader.load_gloria_data(data_path)
     
     print("Processing spectra...")
-    spectra, point_names = data_processor.process_spectra(data, target_stations)
+    spectra, point_names = data_processor.process_spectra(data)
     
-    # Run simulations
-    print("Running satellite band simulations...")
+    # Get actual number of stations from the processed data
+    actual_stations = len(point_names)
+    print(f"Working with {actual_stations} stations")
+
+    # Run single sensor
+    print("Running OLI simulation")
+    #oli_results = data_processor.run_sensor_simulation(simulator, spectra, point_names, "oli")
+    #output_handler.save_all_results(oli_results, point_names, actual_stations)
+
+    # Run multiple selected sensors
+    print("Running Multiple Sensors")
+    selected_sensors = [
+        'oli',
+        'olci',
+        {'sensor': 'msi', 'variant': 's2b'},
+        'modis'
+    ]
+    #multi_results = data_processor.run_multiple_sensors(simulator, spectra, point_names, selected_sensors)
+    #output_handler.save_all_results(multi_results, point_names, actual_stations)
+
+    # Run all sensors
+    print("Running all satellite band simulation")
     simulation_results = data_processor.run_all_simulations(simulator, spectra, point_names)
-    
-    # Save results
-    print("Saving results...")
-    output_handler.save_all_results(simulation_results, point_names, target_stations)
-    
+    output_handler.save_all_results(simulation_results, point_names, actual_stations)
+
     print(f"Results saved to {output_dir}/ directory.")
     print("Simulation completed!")
 

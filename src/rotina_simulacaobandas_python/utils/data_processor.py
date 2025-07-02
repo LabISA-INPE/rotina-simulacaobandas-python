@@ -2,7 +2,47 @@ import pandas as pd
 import numpy as np
 
 class DataProcessor:
-    def process_spectra(self, data, target_stations=1000):
+    def __init__(self):
+        # Define available sensors and their configurations
+        self.available_sensors = {
+            'msi': {
+                'name': 'MSI (Sentinel-2)',
+                'variants': ['s2a', 's2b'],
+                'method': 'msi'
+            },
+            'oli': {
+                'name': 'OLI (Landsat-8)',
+                'variants': None,
+                'method': 'oli'
+            },
+            'etm': {
+                'name': 'ETM+ (Landsat-7)',
+                'variants': None,
+                'method': 'etm'
+            },
+            'tm': {
+                'name': 'TM (Landsat-5)',
+                'variants': None,
+                'method': 'tm'
+            },
+            'olci': {
+                'name': 'OLCI (Sentinel-3)',
+                'variants': None,
+                'method': 'olci'
+            },
+            'superdove': {
+                'name': 'SuperDove (Planet)',
+                'variants': None,
+                'method': 'superdove'
+            },
+            'modis': {
+                'name': 'MODIS',
+                'variants': None,
+                'method': 'modis'
+            }
+        }
+    
+    def process_spectra(self, data):
         # Extract point names
         point_names = data['GLORIA_ID'].tolist()
         
@@ -29,8 +69,10 @@ class DataProcessor:
         # Clean data
         spectra = self._clean_spectra_data(spectra)
         
-        # Extend data if needed
-        point_names, spectra = self._extend_data_if_needed(point_names, spectra, target_stations)
+        # Print info about the dataset
+        current_stations = len(point_names)
+        print(f"Total stations in GLORIA dataset: {current_stations}")
+        print(f"Using all {current_stations} stations from dataset")
                 
         return spectra, point_names
     
@@ -45,65 +87,71 @@ class DataProcessor:
         
         if nan_count > 0:
             spectra = spectra.fillna(0.0)
+            print(f"Filled {nan_count} NaN values with 0.0")
         
         return spectra
     
-    def _extend_data_if_needed(self, point_names, spectra, target_stations):
-        current_stations = len(point_names)
-        print(f"Total stations in GLORIA dataset: {current_stations}")
+    def run_sensor_simulation(self, simulator, spectra, point_names, sensor_id, variant=None):
+        if sensor_id not in self.available_sensors:
+            raise ValueError(f"Unknown sensor: {sensor_id}. Available sensors: {list(self.available_sensors.keys())}")
         
-        if current_stations < target_stations:
-            # Extend point_names
-            for i in range(current_stations, target_stations):
-                point_names.append(f"PLACEHOLDER_STATION_{i+1}")
+        sensor_config = self.available_sensors[sensor_id]
+        method_name = sensor_config['method']
+        
+        try:
+            # Get the simulation method from the simulator
+            sim_method = getattr(simulator, method_name)
+            result = sim_method(spectra, point_names)
             
-            # Extend spectra with duplicated real data
-            additional_cols = target_stations - current_stations
-            
-            if current_stations > 0:
-                # Repeat existing data cyclically
-                repeat_indices = np.tile(np.arange(current_stations), 
-                                       (additional_cols // current_stations) + 1)[:additional_cols]
-                additional_data = spectra.iloc[:, repeat_indices].values
-                
-                additional_df = pd.DataFrame(additional_data, 
-                                           index=spectra.index,
-                                           columns=range(current_stations, target_stations))
-                spectra = pd.concat([spectra, additional_df], axis=1)
-                
-                print(f"Extended spectra with duplicated real data")
+            # Handle sensors with variants (like MSI)
+            if sensor_config['variants'] and isinstance(result, dict):
+                if variant:
+                    if variant not in result:
+                        raise ValueError(f"Variant {variant} not available for {sensor_id}. Available variants: {list(result.keys())}")
+                    return {f"{sensor_id}_{variant}": result[variant]}
+                else:
+                    # Return all variants with proper naming
+                    return {f"{sensor_id}_{var}": data for var, data in result.items()}
             else:
-                print("Warning: No original data to duplicate")
-        
-        elif current_stations >= target_stations:
-            print(f"Using all {current_stations} stations from GLORIA dataset")
-        
-        return point_names, spectra
+                # Single result sensor
+                return {sensor_id: result}
+                
+        except AttributeError:
+            raise ValueError(f"Simulation method '{method_name}' not found in simulator")
+        except Exception as e:
+            raise RuntimeError(f"Error in {sensor_id} simulation: {str(e)}")
     
-    def run_all_simulations(self, simulator, spectra, point_names):
+    def run_multiple_sensors(self, simulator, spectra, point_names, sensor_requests):
         simulation_results = {}
         
-        simulations = [
-            ('MSI', lambda: simulator.msi(spectra, point_names)),
-            ('OLI', lambda: simulator.oli(spectra, point_names)),
-            ('ETM', lambda: simulator.etm(spectra, point_names)),
-            ('TM', lambda: simulator.tm(spectra, point_names)),
-            ('OLCI', lambda: simulator.olci(spectra, point_names)),
-            ('SuperDove', lambda: simulator.superdove(spectra, point_names)),
-            ('MODIS', lambda: simulator.modis(spectra, point_names))
-        ]
-        
-        for sim_name, sim_func in simulations:
+        for request in sensor_requests:
+            if isinstance(request, str):
+                sensor_id = request
+                variant = None
+            elif isinstance(request, dict):
+                sensor_id = request.get('sensor')
+                variant = request.get('variant')
+            else:
+                print(f"Warning: Invalid sensor request format: {request}")
+                continue
+            
             try:
-                result = sim_func()
-                
-                if sim_name == 'MSI':
-                    simulation_results['msi_s2a'] = result['s2a']
-                    simulation_results['msi_s2b'] = result['s2b']
-                else:
-                    simulation_results[sim_name.lower()] = result
-                    
+                result = self.run_sensor_simulation(simulator, spectra, point_names, sensor_id, variant)
+                simulation_results.update(result)
+                print(f"✓ Completed simulation for {sensor_id}" + (f" ({variant})" if variant else ""))
             except Exception as e:
-                print(f"Error in {sim_name} simulation: {e}")
+                print(f"✗ Failed simulation for {sensor_id}: {e}")
         
         return simulation_results
+    
+    def run_all_simulations(self, simulator, spectra, point_names):
+        all_sensors = []
+        for sensor_id, config in self.available_sensors.items():
+            if config['variants']:
+                # Add each variant as a separate request
+                for variant in config['variants']:
+                    all_sensors.append({'sensor': sensor_id, 'variant': variant})
+            else:
+                all_sensors.append(sensor_id)
+        
+        return self.run_multiple_sensors(simulator, spectra, point_names, all_sensors)
