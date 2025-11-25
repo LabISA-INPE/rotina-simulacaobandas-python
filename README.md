@@ -25,9 +25,6 @@ A Python library for simulating satellite sensor bands from hyperspectral remote
 | CBERS-04A | MUX | 4 | 400-900 nm | ✅ Active |
 | CBERS-04A | WPM | 5 (incl. PAN) | 400-900 nm | ✅ Active |
 | Amazonia-1 | WFI | 8 | 400-900 nm | ✅ Active |
-| Aqua/Terra | MODIS | 16 | 400-900 nm | ⏸️ Disabled* |
-
-*MODIS disabled pending SRF file availability
 
 ## 📋 Requirements
 
@@ -186,94 +183,3 @@ SENSOR_CONFIGS = {
     }
 }
 ```
-
-No code changes required! The system will automatically:
-- Load the SRF file
-- Create simulation methods
-- Add to available sensors list
-
-## 📊 Input Data Format
-
-Input CSV should contain:
-- `GLORIA_ID` column: Station/point identifiers
-- `Rrs_XXX` columns: Remote sensing reflectance at wavelength XXX (400-900 nm)
-
-Example:
-```csv
-GLORIA_ID,Rrs_400,Rrs_401,...,Rrs_900
-STATION_001,0.00234,0.00245,...,0.00123
-STATION_002,0.00198,0.00210,...,0.00098
-```
-
-## 📤 Output Format
-
-Each sensor generates a CSV file: `<sensor_name>_simulation.csv`
-
-Structure:
-- `Wave` column: Band wavelength centers
-- `GID_N` columns: Simulated band values for each station
-
-Example output (`oli_simulation.csv`):
-```csv
-Wave,GID_1,GID_2,GID_3,...
-440,0.0023456789012345,0.0019876543210987,...
-490,0.0045678901234567,0.0038765432109876,...
-560,0.0067890123456789,0.0056789012345678,...
-```
-
-## 🔬 How It Works
-
-The simulation uses Spectral Response Functions (SRF) to convert hyperspectral data to satellite bands:
-
-1. Load SRF data for the sensor
-2. Normalize SRF values: `FAC = SRF / Σ(SRF)`
-3. Match SRF wavelengths with input spectra wavelengths
-4. Calculate band value: `band = Σ(FAC × spectra) × 10`
-5. Handle invalid data (NaN/negative values → 0)
-
-## 🇧🇷 Brazilian Satellite Support
-
-This library includes complete support for Brazilian Earth observation satellites:
-
-- **CBERS-04 MUX**: China-Brazil Earth Resources Satellite with 4 multispectral bands
-- **CBERS-04A MUX**: Enhanced MUX sensor with improved radiometry
-- **CBERS-04A WPM**: Wide Panchromatic and Multispectral camera (5 bands including PAN)
-- **Amazonia-1 WFI**: First 100% Brazilian satellite with dual Wide Field Imager (8 bands)
-
-## 🤝 Contributing
-
-Contributions are welcome! To contribute:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add your sensor configuration or improvements
-4. Submit a pull request
-
-## 📝 License
-
-This project is part of the Laboratory of Applied Information Systems (LabISA) at the National Institute for Space Research (INPE), Brazil.
-
-## 📚 References
-
-- GLORIA Database: Global Reflectance Database for Inland Waters
-- Sentinel-2 MSI: ESA Copernicus Programme
-- Landsat Program: NASA/USGS
-- CBERS: China-Brazil Earth Resources Satellite Program
-- Amazonia-1: Brazilian Space Program (INPE)
-
-## 💡 Citation
-
-If you use this software in your research, please cite:
-
-```bibtex
-@software{satellite_band_simulation,
-  title = {Satellite Band Simulation},
-  author = {LabISA-INPE},
-  year = {2025},
-  url = {https://github.com/LabISA-INPE/rotina-simulacaobandas-python}
-}
-```
-
-## 📧 Contact
-
-For questions or support, please open an issue on GitHub or contact LabISA at INPE.
