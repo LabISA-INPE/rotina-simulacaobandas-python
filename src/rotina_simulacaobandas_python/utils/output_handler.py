@@ -24,16 +24,23 @@ class OutputHandler:
             return pd.DataFrame()
         
         # Extract wave centers from column names
+        # Keep both numeric and string wavelength identifiers
         wave_centers = []
+        valid_columns = []
         for col in data_columns:
             wave_str = col.replace('Band_', '').replace('nm', '')
             try:
+                # Try to parse as integer
                 wave_centers.append(int(wave_str))
+                valid_columns.append(col)
             except ValueError:
-                print(f"Warning: Could not parse wavelength from column {col}")
-        
+                # If not numeric, keep the string identifier (e.g., 'PAN', 'RO_490')
+                wave_centers.append(wave_str)
+                valid_columns.append(col)
+
         # Transpose the data so bands become rows and points become columns
-        df_transposed = df_copy[data_columns].T
+        # Use only valid columns that have corresponding wave_centers
+        df_transposed = df_copy[valid_columns].T
         
         # If target_gid_count is None, use the actual number of points
         if target_gid_count is None:
