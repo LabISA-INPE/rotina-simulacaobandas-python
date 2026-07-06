@@ -42,33 +42,20 @@ class OutputHandler:
         # Use only valid columns that have corresponding wave_centers
         df_transposed = df_copy[valid_columns].T
         
-        # If target_gid_count is None, use the actual number of points
+        # Number of real stations available. `target_gid_count` may cap it lower,
+        # but we NEVER fabricate columns beyond the real data (the old code cycled
+        # through existing stations to pad up to target, inventing fake stations).
+        available = df_transposed.shape[1]
         if target_gid_count is None:
-            target_gid_count = len(point_names)
-        
-        # Use the minimum of available data and target count
-        actual_gid_count = min(df_transposed.shape[1], len(point_names), target_gid_count)
-        
-        # Create the result dictionary
+            gid_count = available
+        else:
+            gid_count = min(available, target_gid_count)
+
+        # Create the result dictionary (one GID column per real station).
         result_data = {'Wave': wave_centers}
-        
-        # Add GID columns with actual data
-        for i in range(target_gid_count):
-            if i < actual_gid_count:
-                # Use actual data
-                column_data = df_transposed.iloc[:, i].values
-                result_data[f'GID_{i+1}'] = column_data
-            else:
-                # For stations beyond available data, use the pattern from real data
-                if actual_gid_count > 0:
-                    # Cycle through existing data
-                    source_idx = i % actual_gid_count
-                    column_data = df_transposed.iloc[:, source_idx].values
-                    result_data[f'GID_{i+1}'] = column_data
-                else:
-                    # Fallback to zeros if no data available
-                    result_data[f'GID_{i+1}'] = [0.0] * len(wave_centers)
-        
+        for i in range(gid_count):
+            result_data[f'GID_{i+1}'] = df_transposed.iloc[:, i].values
+
         # Create DataFrame
         result_df = pd.DataFrame(result_data)
         result_df.index = range(1, len(result_df) + 1)

@@ -71,114 +71,54 @@ class SatelliteBandSimulator:
 
         Returns:
             DataFrame with simulated band values
+
+        The simulated value for a band is the SRF-weighted average of the input
+        spectrum: ``FAC = SRF / sum(SRF)`` then ``band = sum(FAC * Rrs)``. This
+        matches the original R reference (dmaciel123/BandSimulation) exactly.
+        Implemented as a single matrix product ``W @ spectra`` (W = per-band
+        normalized weights aligned to the spectrum's wavelength grid).
         """
-        # Convert to numpy for faster operations
-        spectra_values = spectra.values
-        spectra_wavelengths = spectra.index.values
+        # Spectrum grid and cleaned values (drop NaN -> 0, clip negatives -> 0).
+        grid = spectra.index.values.astype(float)
+        spectra_values = np.nan_to_num(np.maximum(spectra.values.astype(float), 0.0), nan=0.0)
 
-        # Initialize result array with NaN
         n_bands = len(band_indices)
-        n_points = len(point_names)
-        results = np.full((n_bands, n_points), np.nan)
+        n_wavelengths = len(grid)
 
-        # Process each band
+        # Build the weight matrix: one normalized SRF per band, resampled onto the
+        # spectrum grid. Bands with no usable SRF stay all-zero (-> 0 output).
+        weights = np.zeros((n_bands, n_wavelengths))
+        srf_wavelengths_raw = srf_data.iloc[:, 0].values
+
         for band_idx, srf_col_idx in enumerate(band_indices):
-            try:
-                # Extract SRF for this band
-                srf_wavelengths_raw = srf_data.iloc[:, 0].values
-                srf_values_raw = srf_data.iloc[:, srf_col_idx].values
+            srf_values_raw = srf_data.iloc[:, srf_col_idx].values
 
-                # Filter out NaN values
-                valid_mask = ~(pd.isna(srf_wavelengths_raw) | pd.isna(srf_values_raw))
-                srf_wavelengths = srf_wavelengths_raw[valid_mask].astype(int)
-                srf_values = srf_values_raw[valid_mask]
+            valid = ~(pd.isna(srf_wavelengths_raw) | pd.isna(srf_values_raw))
+            srf_wl = srf_wavelengths_raw[valid].astype(float)
+            srf_v = srf_values_raw[valid].astype(float)
 
-                # Apply wavelength filtering
-                if wavelength_range is not None:
-                    min_wave, max_wave = wavelength_range
-                    mask = (srf_wavelengths >= min_wave) & (srf_wavelengths <= max_wave)
-                    srf_wavelengths = srf_wavelengths[mask]
-                    srf_values = srf_values[mask]
+            if wavelength_range is not None:
+                min_wave, max_wave = wavelength_range
+                in_range = (srf_wl >= min_wave) & (srf_wl <= max_wave)
+                srf_wl, srf_v = srf_wl[in_range], srf_v[in_range]
 
-                # Check if we have valid SRF data
-                if len(srf_values) == 0:
-                    continue
-
-                # Calculate FAC (normalization)
-                srf_sum = np.sum(srf_values)
-                if srf_sum <= 0:
-                    continue
-
-                # Apply proper normalization - divide by sum and multiply by wavelength interval
-                fac_values = srf_values / srf_sum
-
-                # Find matching wavelengths between spectra and SRF
-                valid_indices = []
-                valid_fac = []
-
-                for i, wl in enumerate(srf_wavelengths):
-                    # Check if wavelength exists in spectra
-                    spec_idx_matches = np.where(spectra_wavelengths == wl)[0]
-                    if len(spec_idx_matches) > 0:
-                        spec_idx = spec_idx_matches[0]
-                        valid_indices.append(spec_idx)
-                        valid_fac.append(fac_values[i])
-
-                if not valid_indices:
-                    continue
-
-                valid_indices = np.array(valid_indices)
-                valid_fac = np.array(valid_fac)
-
-                # Process each point individually to handle invalid data
-                for point_idx in range(n_points):
-                    try:
-                        # Get spectra values for this point at matching wavelengths
-                        point_spectra = spectra_values[valid_indices, point_idx]
-
-                        # Handle NaN values by replacing with zeros or interpolating
-                        if np.any(np.isnan(point_spectra)):
-                            # Option 1: Replace NaN with 0
-                            point_spectra = np.nan_to_num(point_spectra, nan=0.0)
-
-                        # Handle negative values (replace with 0 or skip)
-                        if np.any(point_spectra < 0):
-                            point_spectra = np.maximum(point_spectra, 0.0)
-
-                        # More lenient check: allow processing even if some values are zero
-                        if len(point_spectra) > 0:
-                            # Calculate the band value for this point
-                            band_value = np.sum(valid_fac * point_spectra)
-
-                            # Apply scaling factor to match expected results (divide by 10^11)
-                            band_value = band_value * 10
-
-                            # Store the result (even if it's 0)
-                            if not np.isnan(band_value):
-                                results[band_idx, point_idx] = band_value
-                            else:
-                                # If calculation resulted in NaN, set to 0
-                                results[band_idx, point_idx] = 0.0
-
-                    except (IndexError, ValueError):
-                        results[band_idx, point_idx] = 0.0
-                        continue
-
-            except Exception:
+            if srf_wl.size == 0:
                 continue
 
-        # Create result DataFrame
+            # Resample the SRF onto the spectrum grid (0 outside its support).
+            # np.interp needs ascending x.
+            order = np.argsort(srf_wl)
+            resampled = np.interp(grid, srf_wl[order], srf_v[order], left=0.0, right=0.0)
+
+            total = resampled.sum()
+            if total > 0:
+                weights[band_idx] = resampled / total
+
+        # bands (n_bands x n_points) = weights (n_bands x n_wl) @ spectra (n_wl x n_points)
+        results = weights @ spectra_values
+
         band_names = [f'Band_{wave}nm' for wave in wave_centers]
-        result_df = pd.DataFrame(results.T, columns=band_names, index=point_names)
-
-        # Add Wave column at the beginning (though it seems redundant)
-        result_df.insert(0, 'Wave', [wave_centers[i] if i < len(wave_centers) else 0 for i in range(len(point_names))])
-
-        # Format numerical columns to avoid scientific notation
-        for col in band_names:
-            result_df[col] = result_df[col].apply(lambda x: f"{x:.16f}" if not pd.isna(x) else x)
-
-        return result_df
+        return pd.DataFrame(results.T, columns=band_names, index=point_names)
 
     def simulate(self, sensor_id, spectra, point_names, variant=None):
         """
