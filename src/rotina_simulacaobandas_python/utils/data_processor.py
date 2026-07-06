@@ -1,23 +1,14 @@
 import pandas as pd
-import numpy as np
 from rotina_simulacaobandas_python.config.sensor_config import SENSOR_CONFIGS
 
 
 class DataProcessor:
     def __init__(self):
         """Initialize DataProcessor with sensor configurations from config."""
-        # Build available sensors from config
-        self.available_sensors = {}
-        for sensor_id, config in SENSOR_CONFIGS.items():
-            # Skip disabled sensors
-            if config.get('enabled', True) is False:
-                continue
-
-            self.available_sensors[sensor_id] = {
-                'name': config['name'],
-                'variants': list(config['variants'].keys()) if 'variants' in config else None,
-                'method': sensor_id  # Method name matches sensor_id
-            }
+        self.available_sensors = {
+            sensor_id: {'name': config['name']}
+            for sensor_id, config in SENSOR_CONFIGS.items()
+        }
 
     def process_spectra(self, data):
         """
@@ -87,102 +78,37 @@ class DataProcessor:
         return spectra
 
     def run_sensor_simulation(self, simulator, spectra, point_names, sensor_id, variant=None):
-        """
-        Run simulation for a single sensor.
+        """Run simulation for a single sensor.
 
-        Args:
-            simulator: SatelliteBandSimulator instance
-            spectra: Spectra DataFrame
-            point_names: List of point/station names
-            sensor_id: Sensor identifier
-            variant: Optional variant identifier
-
-        Returns:
-            Dictionary with sensor results
+        Returns ``{sensor_id: DataFrame}``. ``variant`` is deprecated (MSI
+        variants are now their own sensor ids) and ignored.
         """
         if sensor_id not in self.available_sensors:
-            raise ValueError(f"Unknown sensor: {sensor_id}. Available sensors: {list(self.available_sensors.keys())}")
-
-        sensor_config = self.available_sensors[sensor_id]
-        method_name = sensor_config['method']
-
+            raise ValueError(
+                f"Unknown sensor: {sensor_id}. "
+                f"Available sensors: {list(self.available_sensors.keys())}"
+            )
         try:
-            # Get the simulation method from the simulator
-            sim_method = getattr(simulator, method_name)
-            result = sim_method(spectra, point_names)
-
-            # Handle sensors with variants (like MSI)
-            if sensor_config['variants'] and isinstance(result, dict):
-                if variant:
-                    if variant not in result:
-                        raise ValueError(f"Variant {variant} not available for {sensor_id}. Available variants: {list(result.keys())}")
-                    return {f"{sensor_id}_{variant}": result[variant]}
-                else:
-                    # Return all variants with proper naming
-                    return {f"{sensor_id}_{var}": data for var, data in result.items()}
-            else:
-                # Single result sensor
-                return {sensor_id: result}
-
-        except AttributeError:
-            raise ValueError(f"Simulation method '{method_name}' not found in simulator")
+            result = simulator.simulate(sensor_id, spectra, point_names)
         except Exception as e:
-            raise RuntimeError(f"Error in {sensor_id} simulation: {str(e)}")
+            raise RuntimeError(f"Error in {sensor_id} simulation: {e}") from e
+        return {sensor_id: result}
 
-    def run_multiple_sensors(self, simulator, spectra, point_names, sensor_requests):
-        """
-        Run simulations for multiple sensors.
-
-        Args:
-            simulator: SatelliteBandSimulator instance
-            spectra: Spectra DataFrame
-            point_names: List of point/station names
-            sensor_requests: List of sensor IDs or dicts with 'sensor' and 'variant' keys
-
-        Returns:
-            Dictionary with all simulation results
-        """
-        simulation_results = {}
-
-        for request in sensor_requests:
-            if isinstance(request, str):
-                sensor_id = request
-                variant = None
-            elif isinstance(request, dict):
-                sensor_id = request.get('sensor')
-                variant = request.get('variant')
-            else:
-                print(f"Warning: Invalid sensor request format: {request}")
-                continue
-
+    def run_multiple_sensors(self, simulator, spectra, point_names, sensor_ids):
+        """Run simulations for a list of sensor ids."""
+        results = {}
+        for sensor_id in sensor_ids:
             try:
-                result = self.run_sensor_simulation(simulator, spectra, point_names, sensor_id, variant)
-                simulation_results.update(result)
-                print(f"✓ Completed simulation for {sensor_id}" + (f" ({variant})" if variant else ""))
+                results.update(
+                    self.run_sensor_simulation(simulator, spectra, point_names, sensor_id)
+                )
+                print(f"✓ Completed simulation for {sensor_id}")
             except Exception as e:
                 print(f"✗ Failed simulation for {sensor_id}: {e}")
-
-        return simulation_results
+        return results
 
     def run_all_simulations(self, simulator, spectra, point_names):
-        """
-        Run simulations for all available sensors.
-
-        Args:
-            simulator: SatelliteBandSimulator instance
-            spectra: Spectra DataFrame
-            point_names: List of point/station names
-
-        Returns:
-            Dictionary with all simulation results
-        """
-        all_sensors = []
-        for sensor_id, config in self.available_sensors.items():
-            if config['variants']:
-                # Add each variant as a separate request
-                for variant in config['variants']:
-                    all_sensors.append({'sensor': sensor_id, 'variant': variant})
-            else:
-                all_sensors.append(sensor_id)
-
-        return self.run_multiple_sensors(simulator, spectra, point_names, all_sensors)
+        """Run simulations for all available sensors."""
+        return self.run_multiple_sensors(
+            simulator, spectra, point_names, list(self.available_sensors)
+        )
