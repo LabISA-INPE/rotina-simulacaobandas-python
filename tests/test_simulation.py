@@ -67,7 +67,7 @@ def test_matches_reference_and_is_physical(sensor_id):
 def test_output_is_numeric_without_wave_column():
     spectra, points = _load_spectra()
     sim = spectra_simulation.SatelliteBandSimulator()
-    out = sim.simulate("oli", spectra, points)
+    out = sim.simulate("oli_l8", spectra, points)
     assert "Wave" not in out.columns
     for col in out.columns:
         assert np.issubdtype(out[col].dtype, np.floating)

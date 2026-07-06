@@ -14,9 +14,9 @@ SENSOR_CONFIGS = {
     # --- Bruno Rech / rs_tools sensors (NASA-RSR / Gaussian SRFs) ---
     'msi_s2a': {'name': 'MSI (Sentinel-2A)', 'srf': 'SRF_MSI_S2A'},
     'msi_s2b': {'name': 'MSI (Sentinel-2B)', 'srf': 'SRF_MSI_S2B'},
-    'olci': {'name': 'OLCI (Sentinel-3A)', 'srf': 'SRF_OLCI_S3A'},
+    'olci_s3a': {'name': 'OLCI (Sentinel-3A)', 'srf': 'SRF_OLCI_S3A'},
     'olci_s3b': {'name': 'OLCI (Sentinel-3B)', 'srf': 'SRF_OLCI_S3B'},
-    'oli': {'name': 'OLI (Landsat-8)', 'srf': 'SRF_OLI_L8'},
+    'oli_l8': {'name': 'OLI (Landsat-8)', 'srf': 'SRF_OLI_L8'},
     'enmap': {'name': 'HSI (EnMAP) - hyperspectral', 'srf': 'SRF_HSI_ENMAP'},
     'prisma': {'name': 'HYC (PRISMA) - hyperspectral', 'srf': 'SRF_HYC_PRISMA'},
     'hico': {'name': 'HICO (ISS) - hyperspectral', 'srf': 'SRF_HICO_ISS'},
