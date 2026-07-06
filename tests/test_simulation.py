@@ -96,3 +96,23 @@ def test_values_are_physical_not_inflated():
     max_input = spectra.values.max()
     # a weighted average can't exceed the max input value (x10 would blow past it)
     assert max_band <= max_input + 1e-9
+
+
+# Sensors courtesy of Bruno Rech (rs_tools). From a 400-900 nm input, the 95%
+# coverage filter keeps only bands fully within range (band counts are stable).
+BRUNO_EXPECTED = {"enmap": 78, "prisma": 53, "hico": 83, "pace": 241}
+
+
+@pytest.mark.parametrize("sensor_id,n_bands", list(BRUNO_EXPECTED.items()))
+def test_bruno_sensors(sensor_id, n_bands):
+    spectra, points = _load_spectra()
+    sim = spectra_simulation.SatelliteBandSimulator(srf_folder=str(SRF_DIR))
+    out = sim.simulate(sensor_id, spectra, points)
+
+    assert out.shape == (len(points), n_bands)
+    centers = [float(c.replace("Band_", "").replace("nm", "")) for c in out.columns]
+    assert all(400 <= c <= 900 for c in centers)  # coverage filter respected
+
+    vals = out.to_numpy(dtype=float)
+    assert vals.max() <= spectra.values.max() + 1e-9  # physical (weighted average)
+    assert np.isfinite(vals).all()

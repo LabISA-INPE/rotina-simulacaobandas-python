@@ -122,5 +122,30 @@ SENSOR_CONFIGS = {
         'wave_centers': ['RO_490', 'RO_560', 'RO_665', 'RO_865',
                         'LO_490', 'LO_560', 'LO_665', 'LO_865'],
         'wavelength_range': (400, 900)
+    },
+
+    # Sensors provided by the rs_tools package (courtesy of Bruno Rech, INPE),
+    # simulated via bruno_sensors.py. They use a different backend (parquet SRFs
+    # + 95% coverage filter); band centers are determined dynamically from the
+    # input range, so there are no fixed wave_centers here.
+    'enmap': {
+        'name': 'HSI (EnMAP) - hyperspectral',
+        'backend': 'bruno',
+        'bruno_id': 'hsi-enmap',
+    },
+    'prisma': {
+        'name': 'HYC (PRISMA) - hyperspectral',
+        'backend': 'bruno',
+        'bruno_id': 'hyc-prisma',
+    },
+    'hico': {
+        'name': 'HICO (ISS) - hyperspectral',
+        'backend': 'bruno',
+        'bruno_id': 'hico-iss',
+    },
+    'pace': {
+        'name': 'OCI (PACE) - hyperspectral',
+        'backend': 'bruno',
+        'bruno_id': 'oci-pace',
     }
 }

@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from rotina_simulacaobandas_python.config.sensor_config import SENSOR_CONFIGS
+from rotina_simulacaobandas_python import bruno_sensors
 
 
 class SatelliteBandSimulator:
@@ -20,6 +21,10 @@ class SatelliteBandSimulator:
         for sensor_id, config in SENSOR_CONFIGS.items():
             # Skip disabled sensors
             if config.get('enabled', True) is False:
+                continue
+
+            # Bruno-backed sensors load their SRFs on demand from parquet.
+            if config.get('backend') == 'bruno':
                 continue
 
             try:
@@ -142,6 +147,10 @@ class SatelliteBandSimulator:
         if config.get('enabled', True) is False:
             raise ValueError(f"Sensor {sensor_id} is disabled. Check configuration.")
 
+        # Bruno-backed sensors (EnMAP/PRISMA/HICO/PACE) use the rs_tools method.
+        if config.get('backend') == 'bruno':
+            return bruno_sensors.simulate(spectra, point_names, config['bruno_id'])
+
         # Handle sensors with variants
         if 'variants' in config:
             if variant:
@@ -227,3 +236,20 @@ class SatelliteBandSimulator:
     def amazonia1_wfi(self, spectra, point_names):
         """Amazonia-1 WFI simulation - legacy method."""
         return self.simulate('amazonia1_wfi', spectra, point_names)
+
+    # Sensors courtesy of Bruno Rech (rs_tools) - see bruno_sensors.py
+    def enmap(self, spectra, point_names):
+        """HSI (EnMAP) hyperspectral simulation - courtesy of Bruno Rech."""
+        return self.simulate('enmap', spectra, point_names)
+
+    def prisma(self, spectra, point_names):
+        """HYC (PRISMA) hyperspectral simulation - courtesy of Bruno Rech."""
+        return self.simulate('prisma', spectra, point_names)
+
+    def hico(self, spectra, point_names):
+        """HICO (ISS) hyperspectral simulation - courtesy of Bruno Rech."""
+        return self.simulate('hico', spectra, point_names)
+
+    def pace(self, spectra, point_names):
+        """OCI (PACE) hyperspectral simulation - courtesy of Bruno Rech."""
+        return self.simulate('pace', spectra, point_names)
